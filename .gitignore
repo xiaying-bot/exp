@@ -2,3 +2,4 @@
 dataset/
 # 忽略 RealBSR.zip 文件
 RealBSR.zip
+log/
