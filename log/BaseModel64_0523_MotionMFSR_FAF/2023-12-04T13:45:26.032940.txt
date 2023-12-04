@@ -1089,3 +1089,5 @@ BaseModel(
     (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
   )
 )
+[Ep 2 it 9753	 PSNR Manual: 29.8128	] ----  [best_Ep_Manual 2 best_it_Manual 9753 Best_PSNR_Manual 29.8128] 
+Epoch: 2	Time: 9676.5143	Loss: 1951.4783	LearningRate 0.000067
