@@ -1,0 +1,4 @@
+# 忽略 dataset 目录
+dataset/
+# 忽略 RealBSR.zip 文件
+RealBSR.zip

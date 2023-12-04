@@ -12,7 +12,8 @@ class Options():
         parser.add_argument('--train_workers', type=int, default=16, help='train_dataloader workers')
         parser.add_argument('--eval_workers', type=int, default=8, help='eval_dataloader workers')
         # parser.add_argument('--dataset', type=str, default ='SIDD')
-        parser.add_argument('--dataroot', type=str, default='/userhome/aimia/sunyj/DRealBSR_RGB/')
+        # parser.add_argument('--dataroot', type=str, default='/userhome/aimia/sunyj/DRealBSR_RGB/')
+        parser.add_argument('--dataroot', type=str, default='dataset/RealBSR/')
         parser.add_argument('--pretrain_weights',type=str, default='...', help='path of pretrained_weights')   # aimia/sunyj/Uformer_MFSR/Uformer_MFSR/log/Uformer64_0104_MFSR1/models/model_best.pth 
         parser.add_argument('--optimizer', type=str, default ='adamw', help='optimizer for training')
         parser.add_argument('--lr_initial', type=float, default=0.0001, help='initial learning rate')
@@ -20,9 +21,10 @@ class Options():
         parser.add_argument('--gpu', type=str, default='0,1', help='GPUs')
         parser.add_argument('--arch', type=str, default ='BaseModel',  help='archtechture')
         parser.add_argument('--mode', type=str, default ='denoising',  help='image restoration mode')
+        parser.add_argument('--tb_logger', action='store_true', default=False, help='use tb_logger')
         
         # args for saving 
-        parser.add_argument('--save_dir', type=str, default ='/home/ma-user/work/deNoTr/log',  help='save dir')
+        parser.add_argument('--save_dir', type=str, default ='log',  help='save dir')
         parser.add_argument('--save_images', action='store_true',default=False)
         parser.add_argument('--env', type=str, default ='_',  help='env')
         parser.add_argument('--checkpoint', type=int, default=50, help='checkpoint')
@@ -48,8 +50,10 @@ class Options():
         # args for training
         parser.add_argument('--train_ps', type=int, default=160, help='patch size of training sample')
         parser.add_argument('--resume', action='store_true',default=False)
-        parser.add_argument('--train_dir', type=str, default ='../datasets/SIDD/train',  help='dir of train data')
-        parser.add_argument('--val_dir', type=str, default ='../datasets/SIDD/val',  help='dir of train data')
+        # parser.add_argument('--train_dir', type=str, default ='../datasets/SIDD/train',  help='dir of train data')
+        # parser.add_argument('--val_dir', type=str, default ='../datasets/SIDD/val',  help='dir of train data')
+        parser.add_argument('--train_dir', type=str, default ='RealBSR/train',  help='dir of train data')
+        parser.add_argument('--val_dir', type=str, default ='RealBSR/test',  help='dir of train data')
         parser.add_argument('--warmup', action='store_true', default=False, help='warmup') 
         parser.add_argument('--warmup_epochs', type=int,default=3, help='epochs for warmup') 
         

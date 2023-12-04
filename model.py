@@ -832,17 +832,21 @@ class NewFusion(nn.Module):
 
     def forward(self, aligned_feat):
         b, t, c, h, w = aligned_feat.size()
-
+        # print(f"model input (aligned feature) shape: {aligned_feat.size()}")  # [2, 14, 64, 160, 160]
+        # print(f"self.center_frame_idx: {self.center_frame_idx}")  # 0
+        # print(f"reference frame shape: {aligned_feat[:, self.center_frame_idx, :, :, :].shape}") # [2, 64, 160, 160]
         # attention map, highlight distinctions while keep similarities
         embedding_ref = self.temporal_attn1(aligned_feat[:, self.center_frame_idx, :, :, :].clone())
+        # print(f"reference frame feature shape: {embedding_ref.shape}") # [2, 64, 160, 160]
         embedding = self.temporal_attn2(aligned_feat.view(-1, c, h, w))
+        # print(f"all frames feature shape: {embedding.shape}") # [28, 64, 160, 160]
         embedding = embedding.view(b, t, -1, h, w)  # [b,t,c,h,w]
 
-        corr_diff = []
-        corr_l = []
+        corr_diff = [] # 相似性差异列表
+        corr_l = [] #
         for i in range(t):
-            emb_neighbor = embedding[:, i, :, :, :]
-            corr = torch.sum(emb_neighbor * embedding_ref, 1).unsqueeze(1)  # [b,1,h,w]
+            emb_neighbor = embedding[:, i, :, :, :] # 取出第i帧的特征
+            corr = torch.sum(emb_neighbor * embedding_ref, 1).unsqueeze(1)  # [b,1,h,w] #将第i帧特征和参考帧特征逐元素相乘后求和
             corr_l.append(corr)
             if i == 0:
                 continue
@@ -1049,6 +1053,69 @@ class BasicBaseModelLayer(nn.Module):
         for blk in self.blocks:
             flops += blk.flops()
         return flops
+
+#######################################################################################
+###########################  Exp1 对齐+融合后，用GRL进行重建###############################
+class Model1(nn.Module):
+    def __init__(self, patch_size=0.0, img_size=128, in_chans=3,
+                 embed_dim=32, depths=[2, 2, 2, 2, 2, 2, 2, 2, 2], num_heads=[1, 2, 4, 8, 16, 16, 8, 4, 2],
+                 win_size=8, mlp_ratio=4., qkv_bias=True, qk_scale=None,
+                 drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+                 norm_layer=nn.LayerNorm, patch_norm=True,
+                 use_checkpoint=False, token_projection='linear', token_mlp='ffn', se_layer=False,
+                 dowsample=Downsample, upsample=Upsample, **kwargs):
+        super().__init__()
+
+        # 网络层
+        m_head = [conv(in_chans, embed_dim, kernel_size=3)]
+
+        m_body = [
+            common.ResBlock(
+                conv, embed_dim, kernel_size=3
+            ) for _ in range(n_resblocks)
+        ]
+
+        self.fusion = NewFusion(num_feat=embed_dim, num_frame=self.num_frames, center_frame_idx=0)
+
+        m_tail = [
+            common.Upsampler(conv, scale, embed_dim, act=False),
+            conv(embed_dim, in_chans, kernel_size=3)
+        ]
+
+        self.head = nn.Sequential(*m_head)
+        self.body = nn.Sequential(*m_body)
+        self.tail = nn.Sequential(*m_tail)
+
+        # 初始化模型权重
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    def forward(self, x):
+        b, t, c, h, w = x.size()
+        assert c == 3, 'In channels should be 3!!!'
+
+        x_base = x[:, 0, :, :, :].contiguous() # 切片操作过后contiguous是为了确保张量的存储是连续的
+
+        # feature extraction 
+        x_feat_head = self.head(x.view(-1, c, h, w)) 
+        x_feat_body = self.body(x_feat_head)
+
+        feat = x_feat_body.view(b, t, -1, h, w)
+
+        # fusion 
+        fusion_feat = self.fusion(feat)
+
+        assert fusion_feat.dim() == 4, 'Fusion Feat should be [B, C, H, W]!!!'
+
+        #Input Projection
 
 
 #######################################################################################
@@ -1356,12 +1423,12 @@ class BaseModel(nn.Module):
                                                     se_layer=se_layer)
         self.HG2_conv_dec1 = nn.Sequential(conv(embed_dim * 2, embed_dim * 2, kernel_size=3))
 
-        self.apply(self._init_weights)
+        self.apply(self._init_weights)  # 初始化模型权重，调用_init_weights函数
 
-    def _init_weights(self, m):
+    def _init_weights(self, m):  # 用于初始化神经网络权重，根据不同类型的层执行了不同的权重初始化操作
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
+            trunc_normal_(m.weight, std=.02)  # 使用截断正态分布（truncated normal distribution）来初始化权重 m.weight，标准差设定为 0.02
+            if isinstance(m, nn.Linear) and m.bias is not None:  # 如果存在偏置项 m.bias，则将其初始化为常数 
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.bias, 0)

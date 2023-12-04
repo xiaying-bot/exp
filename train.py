@@ -13,6 +13,12 @@ import options
 opt = options.Options().init(argparse.ArgumentParser(description='image denoising')).parse_args()
 print(opt)
 
+########### tensorboard ###########
+if opt.tb_logger:
+    from torch.utils.tensorboard import SummaryWriter
+    tb_logger = SummaryWriter(log_dir='./tb_logger/' + opt.arch)
+
+print("=====> use tensorboard!")
 import utils
 
 ######### Set GPUs ###########
@@ -51,6 +57,7 @@ import torchvision.transforms as transforms
 
 ######### Logs dir ###########
 log_dir = os.path.join(dir_name, 'log', opt.arch + opt.env)
+print(f"log_dir: {log_dir}")
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 logname = os.path.join(log_dir, datetime.datetime.now().isoformat() + '.txt')
@@ -140,13 +147,14 @@ len_valset = val_dataset.__len__()
 print("Sizeof training set: ", len_trainset, ", sizeof validation set: ", len_valset)
 
 ######### train ###########
-print('===> Start Epoch {} End Epoch {}'.format(start_epoch, opt.nepoch))
+print('===> Start Epoch: {}, End Epoch: {}'.format(start_epoch, opt.nepoch))
 best_psnr = 0
 best_epoch = 0
 best_iter = 0
 eval_now = len(train_loader)
 print("\nEvaluation after every {} Iterations !!!\n".format(eval_now))
 
+epoch_times = []
 loss_scaler = NativeScaler()
 torch.cuda.empty_cache()
 for epoch in range(start_epoch, opt.nepoch + 1):
@@ -214,7 +222,17 @@ for epoch in range(start_epoch, opt.nepoch + 1):
                 model_restoration.train()
                 torch.cuda.empty_cache()
     scheduler.step()
+    epoch_end_time = time.time()
+    epoch_time = epoch_end_time - epoch_start_time
+    epoch_times.append(epoch_time)
 
+    avg_epoch_time = sum(epoch_times) / len(epoch_times)
+    remaining_epochs = opt.nepoch - epoch - 1
+    remaining_times = remaining_epochs * avg_epoch_time
+    minutes, seconds = divmod(remaining_times, 60)
+    hours, minutes = divmod(minutes, 60)
+    print(f"===>Time remaining: {int(hours)}h {int(minutes)}m {int(seconds)}s")
+    
     print("------------------------------------------------------------------")
     print("Epoch: {}\tTime: {:.4f}\tLoss: {:.4f}\tLearningRate {:.6f}".format(epoch, time.time() - epoch_start_time,
                                                                               epoch_loss, scheduler.get_lr()[0]))
